@@ -1,12 +1,49 @@
+import 'package:clima_app/screens/loading_screen.dart';
+import 'package:clima_app/services/ulocation.dart';
 import 'package:flutter/material.dart';
-import 'package:clima/utilities/constants.dart';
+import 'package:clima_app/utilities/constants.dart';
+import 'dart:convert';
+import 'package:clima_app/services/weather.dart';
+import 'city_screen.dart';
+import 'package:clima_app/services/networking.dart';
 
 class LocationScreen extends StatefulWidget {
+  LocationScreen({this.locationWeather});
+  final locationWeather;
+
   @override
   _LocationScreenState createState() => _LocationScreenState();
 }
 
 class _LocationScreenState extends State<LocationScreen> {
+  String key = 'c33b322e2502736e8c8508e67fa756e1';
+  int Condition;
+  String location_name;
+  WeatherModel weatherModel = WeatherModel();
+  String weatherIcon;
+  int temperature;
+  String tempMsg;
+  @override
+  void initState() {
+    super.initState();
+    // dynamic data = widget.locationWeather;
+    // print("result ${widget.locationWeather}");
+    updateUi(widget.locationWeather);
+  }
+
+  void updateUi(dynamic data) {
+    // location_name = jsonDecode(data)['name']
+    setState(() {
+      Condition = json.decode(data)['weather'][0]['id'];
+      weatherIcon = weatherModel.getWeatherIcon(Condition);
+      double temp = json.decode(data)['main']['temp'];
+      temperature = temp.toInt();
+      location_name = json.decode(data)['name'];
+      tempMsg = weatherModel.getMessage(temperature);
+    });
+    // des = jsonDecode(data)['weather'][0]['description'];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,14 +66,34 @@ class _LocationScreenState extends State<LocationScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
                   FlatButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      ULocation obj = ULocation();
+                      await obj.getLocation();
+                      var lat = obj.latitude;
+                      var long = obj.longitude;
+                      NetworkHelper networkHelper = await NetworkHelper(
+                          'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$long&appid=$key&units=metric');
+                      var dataValue = await networkHelper.getDataValue();
+                      // print("returned value $dataValue");
+                      updateUi(dataValue);
+                    },
                     child: Icon(
                       Icons.near_me,
                       size: 50.0,
                     ),
                   ),
                   FlatButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      var typedName = await Navigator.push(context,
+                          MaterialPageRoute(builder: (context) {
+                        return CityScreen();
+                      }));
+                      if (typedName != null) {
+                        var citydata =
+                            await weatherModel.getCityWeather(typedName);
+                        updateUi(citydata);
+                      }
+                    },
                     child: Icon(
                       Icons.location_city,
                       size: 50.0,
@@ -49,11 +106,11 @@ class _LocationScreenState extends State<LocationScreen> {
                 child: Row(
                   children: <Widget>[
                     Text(
-                      '32°',
+                      '$temperature',
                       style: kTempTextStyle,
                     ),
                     Text(
-                      '☀️',
+                      '$weatherIcon',
                       style: kConditionTextStyle,
                     ),
                   ],
@@ -62,7 +119,7 @@ class _LocationScreenState extends State<LocationScreen> {
               Padding(
                 padding: EdgeInsets.only(right: 15.0),
                 child: Text(
-                  "It's 🍦 time in San Francisco!",
+                  "$tempMsg in $location_name",
                   textAlign: TextAlign.right,
                   style: kMessageTextStyle,
                 ),
